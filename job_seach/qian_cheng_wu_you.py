@@ -15,32 +15,105 @@ from string import Template
 
 class QCheng:
     # 添加请求头
-    # __headers = {
-    #     'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) '
-    #                   'Chrome/63.0.3239.132 Safari/537.36 QIHU 360SE '
-    # }
     __headers = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Accept-Encoding": "gzip, deflate, br",
         "Accept-Language": "zh-CN,zh;q=0.9",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"
     }
-    __base_url = Template(
-        "https://search.51job.com/list/040000,000000,0000,00,9,99,${keyword},2,"
-        "${page}.html?lang=c&postchannel=0000&workyear=99&cotype=99&degreefrom=99&jobterm=99&companysize=99&ord_field=0"
-        "&dibiaoid=0&line=&welfare=")
 
-    def __init__(self, keyword):
+    '''
+    =======参数说明=======
+    ${city} = 城市代码（参考get_area_code()返回的数据）
+        000000 = 全国热门城市
+        
+    ${area} = 区代码
+        000000 = 所有区
+        
+    ${keyword} = 关键词
+    
+    ${page} = 页数，默认一页50条数据
+        
+    ${workyear} = 工作经验
+        99:所有（默认）
+        01:在校生/应届
+        02:1-3年
+        03:3-5年
+        04:5-10年
+        05:10年以上
+        06:无需经验
+        
+    ${degreefrom} = 学历要求 
+        99:所有（默认）
+        01:初中及以下
+        02:高中/中技/中专
+        03:大专
+        04:本科
+        05:硕士
+        06:博士
+        07:无学历要求
+    '''
+    __base_url = Template(
+        "https://search.51job.com/list/${city},${area},0000,00,9,99,${keyword},2,"
+        "${page}.html?lang=c&postchannel=0000&workyear=${workyear}&cotype=99&degreefrom=${"
+        "degreefrom}&jobterm=99&companysize=99&ord_field=0&dibiaoid=0&line=&welfare=")
+
+    __area_url = "https://js.51jobcdn.com/in/js/2016/layer/area_array_c.js"
+
+    def __init__(self, keyword, workyear="99", degreefrom="99", city="000000", area="000000"):
         self.keyword = keyword
+        self.workyear = workyear
+        self.degreefrom = degreefrom
+        self.city = city
+        self.area = area
+        self.save_path = "./save/"  # 存储路径
+        self.cache_path = "./cache/qcwy_area.txt"  # 缓存路径
         self.row = 2  # 减除标题的两行，记录开始行数
         self.maxRow = 202  # 最大的行数
         self.page = 1  # 当前页数
-        self.base_url = self.__base_url.substitute(keyword=self.keyword, page=self.page)
+        self.base_url = self.__base_url.substitute(keyword=self.keyword,
+                                                   page=self.page,
+                                                   workyear=self.workyear,
+                                                   degreefrom=self.degreefrom,
+                                                   city=self.city,
+                                                   area=self.area)
 
     # 显示当前关键字
     def show_keyword(self):
         print(self.keyword)
 
+    # 获取区域代码数据 并展示
+    def get_area_code(self):
+        # 缓存地址
+        cache_path = self.cache_path
+        # 尝试获取本地缓存
+        if os.path.exists(cache_path):
+            print("区域数据走缓存")
+            # 存在，走本地缓存
+            file_cache = open(cache_path, mode="r+", encoding="utf-8")
+        else:
+            print("区域数据走网络")
+            # 不存在，走网络，并缓存
+            response = requests.get(__area_url)
+            if response.status_code != 200:
+                return
+            file_cache = open(cache_path, mode="w+", encoding="utf-8")
+            file_cache.write(response.text)
+            file_cache.seek(0)  # 将光标回到开头，不然等下的read()读不了数据
+
+        file_data = file_cache.read()
+        # 获取第一次出现的{ 和最后一次出现的}范围的内容
+        pure_data = file_data[file_data.find("{"):file_data.rfind("}") + 1]
+
+        area_data = json.loads(pure_data)
+
+        # 展示数据
+        for area in area_data:
+            print(area + "=" + area_data[area])
+
+        return area_data
+
+    # 给爷爬
     def do_it(self):
         if not self.keyword:
             print("关键词无效")
@@ -72,9 +145,14 @@ class QCheng:
                 self._write_excel(job, self.row)
                 self.row += 1
             print("第%s页" % self.page)
-            self.base_url = self.__base_url.substitute(keyword=self.keyword, page=self.page)
+            self.base_url = self.__base_url.substitute(keyword=self.keyword,
+                                                       page=self.page,
+                                                       workyear=self.workyear,
+                                                       degreefrom=self.degreefrom,
+                                                       city=self.city,
+                                                       area=self.area)
             # 等待一秒循环
-            time.sleep(2)
+            time.sleep(1)
 
         # 保存表格
         self._save_excel()
@@ -185,6 +263,6 @@ class QCheng:
     def _save_excel(self):
         if not self.workbook:
             return
-        # self.worksheet.write(0, 3, 区域, self.content_style)
-        # self.worksheet.write(0, 5, str(len(job_array)) + "条数据", self.content_style)
-        self.workbook.save(str(int(round(time.time() * 1000))) + ".xls")
+        self.worksheet.write(0, 3, self.city + "," + self.area, self.content_style)
+        self.worksheet.write(0, 5, str(self.row - 2), self.content_style)
+        self.workbook.save(self.save_path + "qcwy_" + str(int(round(time.time() * 1000))) + ".xls")
