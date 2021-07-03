@@ -1,6 +1,7 @@
 import os
 
-from job_seach import qian_cheng_wu_you
+from job_seach import qianchengwuyou
+from job_seach import liepin
 
 
 # 初始化缓存目录
@@ -15,8 +16,11 @@ def init_dir():
 
 if __name__ == '__main__':
     # 主关键字
-    keyword = "python"
+    keyword = "android"
     init_dir()
 
-    qc = qian_cheng_wu_you.QCheng(keyword, "01", "03", "030200")
-    qc.do_it()
+    # qc = qian_cheng_wu_you.QCheng(keyword, "01", "03", "030200")
+    # qc.do_it()
+
+    # lp = liepin.Liepin(keyword)
+    # lp.do_it()
