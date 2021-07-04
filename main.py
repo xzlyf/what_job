@@ -1,7 +1,6 @@
 import os
 
-from job_seach import qianchengwuyou
-from job_seach import liepin
+from job_seach import zhilianzhaopin
 
 
 # 初始化缓存目录
@@ -24,3 +23,6 @@ if __name__ == '__main__':
 
     # lp = liepin.Liepin(keyword)
     # lp.do_it()
+
+    # zl = zhilianzhaopin.Zhilian(keyword)
+    # zl.do_it()
